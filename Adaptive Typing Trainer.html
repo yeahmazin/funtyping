@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Adaptive Typing Trainer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{box-sizing:border-box;--bg:#1b1d22;--panel:#23262d;--fg:#d1d0c5;--dim:#5d616b;--ok:#7fd48b;--bad:#ff5c6c;--acc:#e2b714;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font-family:'JetBrains Mono','Fira Code',Consolas,monospace}
+body.typing,body.typing *{cursor:none}
+main{max-width:1000px;margin:0 auto;padding:20px 20px 40px;display:flex;flex-direction:column;min-height:100vh;gap:22px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{color:var(--acc);font-weight:600;letter-spacing:.05em}
+button{font:inherit;background:var(--panel);color:var(--fg);border:1px solid #33373f;border-radius:8px;padding:9px 16px;cursor:pointer}
+button:hover{border-color:var(--acc);color:var(--acc)}
+button.primary{background:var(--acc);color:#1b1d22;border-color:var(--acc);font-weight:600}
+button.primary:hover{filter:brightness(1.1);color:#1b1d22}
+.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat{background:var(--panel);border-radius:10px;padding:12px 14px}
+.stat b{display:block;font-size:1.7rem;color:var(--acc);font-weight:600}
+.stat span{font-size:.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:.12em}
+.weak{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-height:30px;font-size:.8rem;color:var(--dim)}
+.chip{background:var(--panel);border:1px solid #33373f;border-radius:6px;padding:3px 9px;color:var(--bad)}
+.chip i{font-style:normal;color:var(--dim);margin-left:6px}
+.stage{flex:1;display:flex;flex-direction:column;justify-content:center;gap:26px;padding:10px 0}
+.sent{font-size:clamp(1.15rem,2.9vw,1.9rem);line-height:1.9;letter-spacing:.09em;word-break:break-word;transition:opacity .18s,transform .18s}
+.sent.out{opacity:0;transform:translateY(-6px)}
+.sent span{color:var(--dim);border-radius:3px}
+.sent span.c{color:var(--ok)}
+.sent span.e{color:var(--bad);background:rgba(255,92,108,.18)}
+.sent span.cur{box-shadow:-2px 0 0 var(--acc);animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{box-shadow:-2px 0 0 transparent}}
+.next{font-size:clamp(.95rem,2vw,1.2rem);color:#42464f;letter-spacing:.08em;line-height:1.7}
+.hint{text-align:center;font-size:.75rem;color:var(--dim)}
+kbd{background:var(--panel);border-radius:4px;padding:1px 6px}
+.modal{position:fixed;inset:0;background:rgba(10,11,14,.88);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:calc(20px + env(safe-area-inset-top,0px)) 16px calc(20px + env(safe-area-inset-bottom,0px));z-index:10}
+.modal.on{display:flex}
+.card{background:var(--panel);border-radius:14px;padding:26px;width:100%;max-width:760px;margin:auto}
+.card h2{margin:0 0 6px;color:var(--acc)}
+.card p.sub{margin:0 0 18px;color:var(--dim);font-size:.85rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+.grid .stat{background:var(--bg)}
+h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);margin:20px 0 8px}
+.kb{display:flex;flex-direction:column;align-items:center;gap:5px;overflow-x:auto;padding-bottom:4px}
+.row{display:flex;gap:5px}
+.key{width:38px;height:38px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#2c3038;color:var(--dim);font-size:.85rem;flex:none}
+.legend{font-size:.72rem;color:var(--dim);text-align:center;margin-top:6px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+textarea{width:100%;height:110px;background:var(--bg);color:var(--fg);border:1px solid #33373f;border-radius:8px;font:inherit;font-size:.72rem;padding:8px;margin-top:12px;display:none}
+.wrapx{overflow-x:auto}.aud{display:flex;gap:8px;align-items:center}input[type=range]{accent-color:var(--acc);width:90px}select{font:inherit;background:var(--panel);color:var(--fg);border:1px solid #33373f;border-radius:8px;padding:8px}
+@media(max-width:600px){.hud{grid-template-columns:repeat(2,1fr)}.key{width:30px;height:34px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="logo">▍adaptive.type</div>
+  <div style="display:flex;gap:8px">
+    <div class="aud"><button id="snd" title="Mute / unmute">♪ on</button><input id="vol" type="range" min="0" max="100" value="60" aria-label="Volume"><select id="mel" aria-label="Melody"><option value="0">Für Elise</option><option value="1">Canon in D</option><option value="2">Ode to Joy</option><option value="3">Twinkle Twinkle</option><option value="4">Happy Birthday</option><option value="5">Jingle Bells</option><option value="6">Greensleeves</option><option value="7">Amazing Grace</option><option value="8">Auld Lang Syne</option><option value="9">Row Your Boat</option><option value="10">Mary Had a Lamb</option><option value="11">London Bridge</option><option value="12">Oh! Susanna</option></select></div>
+    <button id="fin" class="primary">Finish Training</button>
+  </div>
+</header>
+<section class="hud">
+  <div class="stat"><b id="wpm">0</b><span>wpm</span></div>
+  <div class="stat"><b id="acc">100%</b><span>accuracy</span></div>
+  <div class="stat"><b id="str">0</b><span>streak</span></div>
+  <div class="stat"><b id="tm">0:00</b><span>time</span></div>
+</section>
+<div class="weak"><span>weakest keys</span><span id="weak">none yet</span></div>
+<div class="weak"><span>weakest words</span><span id="weakw">none yet</span></div>
+<section class="stage">
+  <div class="sent" id="cur"></div>
+  <div class="next" id="nxt"></div>
+</section>
+<div class="hint">just start typing &nbsp;·&nbsp; <kbd>Esc</kbd> pause / finish &nbsp;·&nbsp; <kbd>Backspace</kbd> fixes a char (the miss still counts)</div>
+</main>
+
+<div class="modal" id="pause"><div class="card" style="max-width:420px;text-align:center">
+  <h2>Paused</h2><p class="sub">Timer is stopped.</p>
+  <div class="actions" style="justify-content:center"><button id="res" class="primary">Resume</button><button id="fin2">Finish &amp; see summary</button></div>
+</div></div>
+
+<div class="modal" id="sum"><div class="card">
+  <h2>Session summary</h2><p class="sub" id="sumsub"></p>
+  <div class="grid" id="sumgrid"></div>
+  <h3>Key accuracy heatmap</h3>
+  <div class="kb" id="kb"></div>
+  <div class="legend">green = clean · yellow → red = more misses · grey = not attempted</div>
+  <h3>Practice these</h3><div id="focus" style="line-height:2"></div>
+  <h3>Muscle memory focus</h3><div id="mm" style="font-size:.9rem;line-height:1.7"></div>
+  <div class="wrapx"><svg id="spark" viewBox="0 0 600 90" width="100%" height="90" preserveAspectRatio="none"></svg></div>
+  <div class="actions"><button id="again" class="primary">Restart</button><button id="exp">Export stats</button><button id="cp">Copy JSON</button></div>
+  <textarea id="json" readonly></textarea>
+</div></div>
+
+<script>
+(function(){
+const W=("the be to of and a in that have it for not on with as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most quick jumped lazy zebra fox wax vivid jazz box quiz fjord gym vex waltz pixel kayak joyful maple river window pocket orange bridge silver garden thumb yellow zone crazy prize question knuckle exact swift hazy plumb").split(" ");
+const ROWS=["qwertyuiop","asdfghjkl","zxcvbnm"];
+const $=id=>document.getElementById(id);
+let S,timer,ac=null,vol=.6,muted=false,mel=0;
+const MEL=[
+[76,75,76,75,76,71,74,72,69,60,64,69,71,64,68,71,72,64,76,75,76,75,76,71,74,72,69,60,64,69,71,64,72,71,69],
+[78,76,74,73,71,69,71,73,74,73,71,69,67,66,67,64,62,66,69,74,73,71,73,74,78,76,74,73,71,69,71,73],
+[64,64,65,67,67,65,64,62,60,60,62,64,64,62,62,64,64,65,67,67,65,64,62,60,60,62,64,62,60,60],
+[72,72,79,79,81,81,79,77,77,76,76,74,74,72,79,79,77,77,76,76,74,79,79,77,77,76,76,74,72,72,79,79,81,81,79,77,77,76,76,74,74,72],
+[67,67,69,67,72,71,67,67,69,67,74,72,67,67,79,76,72,71,69,77,77,76,72,74,72],
+[64,64,64,64,64,64,64,67,60,62,64,65,65,65,65,65,64,64,64,64,62,62,64,62,67],
+[69,72,74,76,77,76,74,71,67,69,71,72,69,69,68,69,71,68,64,69,72,74,76,77,76,74,71,67,69,71,72,71,69,68,66,68,69,69],
+[62,67,71,67,71,69,67,64,62,62,67,71,67,71,69,74,74,71,74,71,74,71,67,62,64,67,67,64,62,62,67,71,67,71,69,67],
+[60,65,65,65,69,67,65,67,69,65,65,69,72,74,74,74,72,69,69,65,67,65,67,69,65,62,62,60,65],
+[60,60,60,62,64,64,62,64,65,67,72,72,72,67,67,67,64,64,64,60,60,60,67,65,64,62,60],
+[64,62,60,62,64,64,64,62,62,62,64,67,67,64,62,60,62,64,64,64,64,62,62,64,62,60],
+[67,69,67,65,64,65,67,62,64,65,64,65,67,67,69,67,65,64,65,67,62,67,64,60],
+[60,62,64,67,67,69,67,64,60,62,64,64,62,60,62,60,62,64,67,67,69,67,64,60,62,64,64,62,62,60]];
+
+function fresh(){
+  S={errs:{},att:{},miss:{},big:{},hist:[],typed:0,correct:0,streak:0,best:0,elapsed:0,t0:0,running:false,paused:false,over:false,sent:'',pos:0,st:[],next:'',prevWords:[],sm:{c:{},w:{}},wm:{},mi:0};
+  S.sent=gen();S.pos=0;S.st=[];S.next=gen();
+  render();hud();
+}
+function gen(){
+  const mw=Object.keys(S.sm.w),mc=Object.keys(S.sm.c);
+  if(!mw.length&&!mc.length){const out=[];while(out.length<7){const w=W[Math.random()*W.length|0];if(!out.includes(w)&&!S.prevWords.includes(w))out.push(w)}S.prevWords=out.slice(-4);return out.join(' ')}
+  const out=[];
+  mw.slice(0,3).forEach(w=>{for(let k=0;k<(mw.length<=2?3:2);k++)out.push(w)});
+  const cnt=c=>out.join('').split(c).length-1;
+  const cand=W.filter(w=>mc.some(c=>w.includes(c)));
+  let g=0;
+  while((out.length<8||mc.some(c=>cnt(c)<3))&&out.length<12&&g++<60){
+    const pool=cand.length?cand:W,need=mc.filter(c=>cnt(c)<3);
+    const p2=need.length?pool.filter(w=>need.some(c=>w.includes(c))):pool,q=p2.length?p2:pool;
+    out.push(q[Math.random()*q.length|0]);
+  }
+  for(let i=out.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[out[i],out[j]]=[out[j],out[i]]}
+  for(let i=1;i<out.length;i++)if(out[i]===out[i-1]){const j=(i+2)%out.length;[out[i],out[j]]=[out[j],out[i]]}
+  return out.join(' ');
+}
+function render(){
+  const c=$('cur');c.innerHTML='';
+  for(let i=0;i<S.sent.length;i++){
+    const s=document.createElement('span');s.textContent=S.sent[i]===' '?'\u00a0':S.sent[i];
+    s.className=S.st[i]===1?'c':S.st[i]===2?'e':(i===S.pos?'cur':'');
+    c.appendChild(s);
+  }
+  $('nxt').textContent=S.next;
+}
+function el(){return S.elapsed+(S.running&&!S.paused?performance.now()-S.t0:0)}
+function fmt(ms){const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+function rates(){return Object.keys(S.miss).map(k=>[k,S.miss[k]/S.att[k],S.miss[k],S.att[k]]).filter(x=>x[2]>0).sort((a,b)=>b[1]-a[1]||b[2]-a[2])}
+function hud(){
+  const m=el()/60000;
+  $('wpm').textContent=m>0.01?Math.round(S.correct/5/m):0;
+  $('acc').textContent=(S.typed?Math.round(S.correct/S.typed*100):100)+'%';
+  $('str').textContent=S.streak;
+  $('tm').textContent=fmt(el());
+  const ww=Object.entries(S.wm).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  $('weakw').innerHTML=ww.length?ww.map(x=>`<span class="chip">${x[0]}<i>×${x[1]}</i></span>`).join(' '):'none yet';
+  const w=rates().slice(0,6);
+  $('weak').innerHTML=w.length?w.map(x=>`<span class="chip">${x[0]===' '?'␣':x[0]}<i>${Math.round(x[1]*100)}%</i></span>`).join(' '):'none yet';
+}
+function actx(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();return ac}catch(e){return null}}
+function tone(m,dur,g,type){
+  const a=actx();if(!a||muted||vol<=0)return;
+  const f=440*Math.pow(2,(m-69)/12),t=a.currentTime;
+  const o=a.createOscillator(),o2=a.createOscillator(),gn=a.createGain(),g2=a.createGain(),lp=a.createBiquadFilter();
+  o.type=type||'triangle';o.frequency.value=f;o2.type='sine';o2.frequency.value=f*2;g2.gain.value=.25;
+  lp.type='lowpass';lp.frequency.value=2400;
+  gn.gain.setValueAtTime(0,t);gn.gain.linearRampToValueAtTime(g*vol,t+.008);gn.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(gn);o2.connect(g2);g2.connect(gn);gn.connect(lp);lp.connect(a.destination);
+  o.start(t);o2.start(t);o.stop(t+dur+.05);o2.stop(t+dur+.05);
+}
+function note(ok){
+  const m=MEL[mel];
+  if(ok){tone(m[S.mi%m.length],.55,.22);S.mi++}
+  else{tone(m[S.mi%m.length]+6,.16,.11,'sine');try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}}
+}
+function start(){if(!S.running){S.running=true;S.t0=performance.now();timer=setInterval(hud,250)}}
+function key(e){
+  if(e.key==='Escape'){e.preventDefault();if(S.over)return;S.paused?resume():pause();return}
+  if(S.paused||S.over)return;
+  if(e.key==='Backspace'){e.preventDefault();if(S.pos>0){S.pos--;S.st[S.pos]=0;S.streak=0;render();hud()}return}
+  if(e.key.length!==1||e.ctrlKey||e.metaKey||e.altKey)return;
+  e.preventDefault();
+  if(S.pos>=S.sent.length)return;
+  document.body.classList.add('typing');
+  start();
+  const x=S.sent[S.pos],ok=e.key===x;
+  S.att[x]=(S.att[x]||0)+1;S.typed++;S.hist.push(ok?1:0);
+  if(ok){
+    note(true);S.correct++;S.streak++;S.best=Math.max(S.best,S.streak);S.st[S.pos]=1;
+    if(S.errs[x]){S.errs[x]*=.8;if(S.errs[x]<.25)delete S.errs[x]}
+  }else{
+    S.streak=0;S.st[S.pos]=2;S.miss[x]=(S.miss[x]||0)+1;S.errs[x]=(S.errs[x]||0)+1;
+    if(S.pos>0){const b=S.sent[S.pos-1]+x;if(b[0]!==' '&&b[1]!==' ')S.big[b]=(S.big[b]||0)+1}
+    const wd=S.sent.split(' ')[S.sent.slice(0,S.pos).split(' ').length-1];
+    if(x!==' '){if(!S.sm.w[wd])S.wm[wd]=(S.wm[wd]||0)+1;S.sm.w[wd]=1;S.sm.c[x]=(S.sm.c[x]||0)+1}
+    note(false);S.next=gen();
+  }
+  S.pos++;
+  render();hud();
+  if(S.pos>=S.sent.length)advance();
+}
+function advance(){
+  const c=$('cur');c.classList.add('out');
+  setTimeout(()=>{
+    if(S.over)return;
+    S.sent=S.next;S.sm={c:{},w:{}};S.next=gen();S.pos=0;S.st=[];
+    render();c.classList.remove('out');
+  },170);
+}
+function pause(){
+  if(S.running)S.elapsed+=performance.now()-S.t0;
+  S.paused=true;document.body.classList.remove('typing');$('pause').classList.add('on');hud();
+}
+function resume(){S.paused=false;S.t0=performance.now();$('pause').classList.remove('on')}
+function finish(){
+  if(S.over)return;
+  if(S.running&&!S.paused)S.elapsed+=performance.now()-S.t0;
+  S.paused=true;S.over=true;clearInterval(timer);
+  document.body.classList.remove('typing');
+  $('pause').classList.remove('on');
+  summary();$('sum').classList.add('on');
+}
+function acc(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length*100:100}
+function summary(){
+  const m=Math.max(S.elapsed/60000,1/600);
+  const wpm=Math.round(S.correct/5/m),raw=Math.round(S.typed/5/m),ac_=S.typed?S.correct/S.typed*100:100;
+  $('sumsub').textContent=S.typed?S.typed+' keystrokes over '+fmt(S.elapsed):'No keystrokes recorded this session.';
+  $('sumgrid').innerHTML=[[wpm,'wpm'],[raw,'raw wpm'],[ac_.toFixed(1)+'%','accuracy'],[S.best,'best streak'],[fmt(S.elapsed),'time']]
+    .map(x=>`<div class="stat"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('');
+  const r={};rates().forEach(x=>r[x[0]]=x[1]);
+  $('kb').innerHTML=ROWS.map(row=>'<div class="row">'+[...row].map(k=>{
+    let bg='#2c3038',col='var(--dim)';
+    if(S.att[k]){const v=r[k]||0;const h=120-Math.min(1,v*3)*120;bg=`hsl(${h} 55% ${v?32:26}%)`;col='#fff'}
+    return `<div class="key" style="background:${bg};color:${col}" title="${k}: ${S.miss[k]||0}/${S.att[k]||0} missed">${k}</div>`}).join('')+'</div>').join('');
+  const top=rates().slice(0,8),bg=Object.entries(S.big).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  $('focus').innerHTML=(top.length?top.map(x=>`<span class="chip">${x[0]===' '?'␣':x[0]}<i>${x[2]}/${x[3]} missed</i></span>`).join(' '):'Nothing flagged. Clean run.')+
+    (bg.length?'<br><span style="color:var(--dim);font-size:.8rem">trouble pairs: </span>'+bg.map(b=>`<span class="chip">${b[0]}<i>×${b[1]}</i></span>`).join(' '):'');
+  const mw=Object.entries(S.wm).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  if(mw.length)$('focus').innerHTML+='<br><span style="color:var(--dim);font-size:.8rem">mistyped words: </span>'+mw.map(x=>`<span class="chip">${x[0]}<i>×${x[1]}</i></span>`).join(' ');
+  const h=S.hist,t=Math.floor(h.length/3);let mm;
+  const everMissed=Object.keys(S.miss),fixed=everMissed.filter(k=>!S.errs[k]).length;
+  if(t>=15){const a=acc(h.slice(0,t)),b=acc(h.slice(-t)),d=b-a;
+    mm=`Accuracy, first third → last third: <b style="color:var(--acc)">${a.toFixed(1)}% → ${b.toFixed(1)}%</b> (${d>=0?'+':''}${d.toFixed(1)} pts).<br>Weak keys recovered: <b style="color:var(--acc)">${fixed} of ${everMissed.length}</b> ${everMissed.length?'(error weight decayed after clean presses)':''}`;
+  }else mm='Type a bit longer (about 45+ keystrokes) to get a meaningful trend.';
+  $('mm').innerHTML=mm;
+  const B=20,pts=[];for(let i=0;i<h.length;i+=B)pts.push(acc(h.slice(i,i+B)));
+  const sp=$('spark');
+  if(pts.length>1){const d=pts.map((v,i)=>`${(i/(pts.length-1)*600).toFixed(1)},${(85-(Math.max(v,50)-50)/50*80).toFixed(1)}`).join(' ');
+    sp.innerHTML=`<polyline points="${d}" fill="none" stroke="#e2b714" stroke-width="2"/><text x="4" y="12" fill="#5d616b" font-size="11">accuracy per 20 keystrokes (50-100%)</text>`}
+  else sp.innerHTML='';
+  S.data={wpm,rawWpm:raw,accuracy:+ac_.toFixed(1),bestStreak:S.best,seconds:Math.round(S.elapsed/1000),keystrokes:S.typed,
+    keys:Object.fromEntries(Object.keys(S.att).map(k=>[k,{attempts:S.att[k],misses:S.miss[k]||0}])),troublePairs:S.big,troubleWords:S.wm};
+  $('json').value=JSON.stringify(S.data,null,2);
+}
+$('fin').onclick=finish;$('fin2').onclick=finish;$('res').onclick=resume;
+$('again').onclick=()=>{$('sum').classList.remove('on');$('json').style.display='none';clearInterval(timer);fresh()};
+$('exp').onclick=()=>{const t=$('json');t.style.display='block';t.select()};
+$('cp').onclick=()=>{const t=$('json');t.style.display='block';t.select();
+  try{navigator.clipboard.writeText(t.value).then(()=>{$('cp').textContent='Copied'},()=>{})}catch(e){}};
+$('snd').onclick=()=>{muted=!muted;$('snd').textContent='♪ '+(muted?'off':'on');$('snd').blur()};
+$('vol').oninput=e=>{vol=e.target.value/100;if(vol>0&&muted){muted=false;$('snd').textContent='♪ on'}};
+$('vol').onchange=()=>$('vol').blur();
+$('mel').onchange=e=>{mel=+e.target.value;S.mi=0;e.target.blur()};
+document.addEventListener('keydown',key);
+document.addEventListener('mousemove',()=>document.body.classList.remove('typing'));
+window.addEventListener('blur',()=>{if(S.running&&!S.paused&&!S.over)pause()});
+fresh();
+})();
+</script>
+</body>
+</html>
